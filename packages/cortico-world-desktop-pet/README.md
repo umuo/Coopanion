@@ -1,4 +1,4 @@
-<!-- Owner: src/definition.ts, src/cua/cua.ts, src/world.ts, src/asr/system-recognizer.ts, src/asr/transcription-api.ts -->
+<!-- Owner: web/kit/body.js, src/definition.ts, src/cua/cua.ts, src/world.ts, src/asr/system-recognizer.ts, src/asr/transcription-api.ts -->
 
 <p align="center">
   <picture>
@@ -12,7 +12,7 @@
 
 bot 在屏幕底边有一个小身体,由一个形象包提供(见下文):内置的 Coo(C 形的身体,两只 0 形的眼睛,两条短腿)、内置的大肥鱼,或者装上的其他包。它用气泡说话、用选项提问、
 沿屏幕底边走动、做表情和动作;人可以对它说话(FunASR 或 Whisper 在本机识别,Windows 上也可用系统自带的识别)、打字、点选项、戳它、摸它、
-把它拎起来甩出去,这些都作为事件送回 bot。开了电脑操作时,bot 还能看屏幕、动鼠标键盘(见「电脑操作」)。
+把它拎起来甩出去,这些都作为事件送回 bot。内置 Coo 和大肥鱼放下后沿放下的高度横向走动,跳跃后回到这个高度;拖回底部恢复沿底边走动,重启后恢复到底部。开了电脑操作时,bot 还能看屏幕、动鼠标键盘(见「电脑操作」)。
 
 ## 工具
 

@@ -132,6 +132,7 @@ export function createPet(els, opts) {
   const onEvent = opts.onEvent || (() => {});
   const words = opts.words || {};
   let W = 0, H = 0, floorY = 0, S = .42, T = 0;
+    let stageFloorY = 0, floorRatio = 1;
   let roam = opts.roam ?? 'free';
   let skin = opts.skin || null;
   let hold = 0; // until T: an order from outside is in progress, free roaming waits
@@ -157,17 +158,32 @@ export function createPet(els, opts) {
   const minX = () => 104 * S + 8, maxX = () => W - 104 * S - 8;
   const faceDef = n => FACES[n] ?? FACES[words[n]?.expression?.like] ?? FACES.neutral;
 
-  function resize() {
-    const b = opts.bounds();
-    W = b.W; H = b.H; floorY = b.floorY; S = b.S;
-    if (!pet.placed && W > 0) {
-      pet.x = opts.startX != null ? opts.startX : W * .7; pet.placed = true;
-      if (opts.enter === 'drop') { pet.fy = -8; pet.vy = 0; pet.vx = 0; pet.airKind = 'drop'; setMode('air'); }
+    function resize() {
+        const b = opts.bounds();
+        W = b.W; H = b.H; stageFloorY = b.floorY; S = b.S;
+        floorY = clamp(stageFloorY * floorRatio, Math.min(stageFloorY, 256 * S + 8), stageFloorY);
+        if (!pet.placed && W > 0) {
+            pet.x = opts.startX != null ? opts.startX : W * .7;
+            pet.placed = true;
+            if (opts.enter === 'drop') {
+                pet.fy = -8; pet.vy = 0; pet.vx = 0; pet.airKind = 'drop';
+                setMode('air');
+            }
+        }
+        pet.x = clamp(pet.x, minX(), maxX());
+        pet.target = clamp(pet.target, minX(), maxX());
+        if (pet.mode !== 'air' && pet.mode !== 'drag') {
+            pet.fy = floorY;
+        }
     }
-    pet.x = clamp(pet.x, minX(), maxX());
-    pet.target = clamp(pet.target, minX(), maxX());
-    if (pet.mode !== 'air' && pet.mode !== 'drag') pet.fy = floorY;
-  }
+
+    /** A release sets the walking height for this body; resizing preserves its fraction of the stage. */
+    function setWalkingHeight(y) {
+        // The scruff stays above the stage floor while held; dropping near it restores the bottom edge.
+        const target = y >= stageFloorY - 32 * S ? stageFloorY : y;
+        floorY = clamp(target, Math.min(stageFloorY, 256 * S + 8), stageFloorY);
+        floorRatio = stageFloorY > 0 ? floorY / stageFloorY : 1;
+    }
 
   function toStage(lx, ly) {
     const c = pet.xf;
@@ -501,7 +517,7 @@ export function createPet(els, opts) {
       }
       case 'drag': {
         pet.dx = lerp(pet.dx, pointer.x, ease(28, dt));
-        pet.dy = lerp(pet.dy, Math.min(pointer.y, floorY - 245 * S), ease(28, dt));
+        pet.dy = lerp(pet.dy, Math.min(pointer.y, stageFloorY - 245 * S), ease(28, dt));
         tiltT = clamp(pointer.vx * .035, -40, 40); tk = 90; tc = 5;
         if (Math.abs(pointer.vx) > 500 && T > pet.sfxAt) { play('squeak', 'touch'); pet.sfxAt = T + rnd(.4, .7); }
         break;
@@ -743,53 +759,59 @@ export function createPet(els, opts) {
     }
     return (pet.cursor = over ? 'grab' : '');
   }
-  function pointerUp(p) {
-    pet.cursor = '';
-    if (!press) return;
-    if (pet.mode === 'drag') {
-      // hand over from the scruff anchor to the feet anchor without a visual jump
-      const foot = toStage(128, 256);
-      const v = velocity();
-      pet.x = clamp(foot.x, minX(), maxX());
-      pet.fy = Math.min(floorY, foot.y);
-      pet.vx = clamp(v.x, -1800, 1800); pet.vy = clamp(v.y, -1800, 1400);
-      pet.airKind = 'throw';
-      const speed = Math.hypot(v.x, v.y);
-      if (speed > 700) play('whoosh', 'move');
-      setMode('air');
-      onEvent('touch', { kind: speed > 700 ? 'throw' : 'drop', x: Math.round(pet.x) });
-    } else if (now(p) - press.t < 400) {
-      if (pet.mode === 'sleep' || pet.mode === 'sit') {
-        const wasAsleep = pet.mode === 'sleep';
-        setMode('wake', { startle: true }); pet.sqv -= 2.2; pet.nextAt = T + 2.4;
-        play('surprised', 'face');
-        onEvent('touch', { kind: 'poke', woke: wasAsleep });
-      } else if (pet.mode !== 'dizzy') {
-        play('poke', 'touch');
-        const r = ['happy', 'wink', 'surprised', 'love', 'angry'][Math.floor(Math.random() * 5)];
-        setExpr(r);
-        if (Math.random() < .5 && pet.mode === 'idle') setMode('crouch', { jumpV: 480, jumpVx: 0 });
-        onEvent('touch', { kind: 'poke' });
-      }
+    function pointerUp(p) {
+        pet.cursor = '';
+        if (!press) {
+            return;
+        }
+        if (pet.mode === 'drag') {
+            // Hand over from the scruff anchor to the feet anchor without a visual jump.
+            const foot = toStage(128, 256);
+            const v = velocity();
+            setWalkingHeight(foot.y);
+            pet.x = clamp(foot.x, minX(), maxX());
+            pet.fy = Math.min(floorY, foot.y);
+            pet.vx = clamp(v.x, -1800, 1800); pet.vy = clamp(v.y, -1800, 1400);
+            pet.airKind = 'throw';
+            const speed = Math.hypot(v.x, v.y);
+            if (speed > 700) {
+                play('whoosh', 'move');
+            }
+            setMode('air');
+            onEvent('touch', { kind: speed > 700 ? 'throw' : 'drop', x: Math.round(pet.x) });
+        } else if (now(p) - press.t < 400) {
+            if (pet.mode === 'sleep' || pet.mode === 'sit') {
+                const wasAsleep = pet.mode === 'sleep';
+                setMode('wake', { startle: true }); pet.sqv -= 2.2; pet.nextAt = T + 2.4;
+                play('surprised', 'face');
+                onEvent('touch', { kind: 'poke', woke: wasAsleep });
+            } else if (pet.mode !== 'dizzy') {
+                play('poke', 'touch');
+                const r = ['happy', 'wink', 'surprised', 'love', 'angry'][Math.floor(Math.random() * 5)];
+                setExpr(r);
+                if (Math.random() < .5 && pet.mode === 'idle') {
+                    setMode('crouch', { jumpV: 480, jumpVx: 0 });
+                }
+                onEvent('touch', { kind: 'poke' });
+            }
+        }
+        press = null;
     }
-    press = null;
-  }
-  /**
-   * Ends a drag with the body dropped from under stage point `p` with no throw: the pointer was let
-   * go of on another display and the stage now covers that one. Call after `resize()` has taken the
-   * new size.
-   */
-  function dropAt(p) {
-    press = null;
-    if (pet.mode !== 'drag') return;
-    Object.assign(pointer, { x: p.x, y: p.y, vx: 0, samples: [] });
-    pet.x = clamp(p.x, minX(), maxX());
-    pet.fy = Math.min(floorY, p.y + 220 * S);
-    pet.vx = 0; pet.vy = 0;
-    pet.airKind = 'drop';
-    setMode('air');
-    onEvent('touch', { kind: 'drop', x: Math.round(pet.x) });
-  }
+    /** Ends a cross-display drag at stage point `p` after resize(), setting the walking height with no throw. */
+    function dropAt(p) {
+        press = null;
+        if (pet.mode !== 'drag') {
+            return;
+        }
+        Object.assign(pointer, { x: p.x, y: p.y, vx: 0, samples: [] });
+        setWalkingHeight(p.y + 220 * S);
+        pet.x = clamp(p.x, minX(), maxX());
+        pet.fy = Math.min(floorY, p.y + 220 * S);
+        pet.vx = 0; pet.vy = 0;
+        pet.airKind = 'drop';
+        setMode('air');
+        onEvent('touch', { kind: 'drop', x: Math.round(pet.x) });
+    }
   /**
    * Keeps a held body under the pointer when the stage moved to another display mid-drag: every
    * point on screen now sits (dx, dy) stage pixels from where it was.

@@ -43,7 +43,7 @@ export const petToolDecls = (language: Language = 'zh'): Array<Omit<ToolDef, 'ha
   {
     name: 'pet_move_to',
     tags: ['act'],
-    description: 'Go somewhere on the screen the pet is on: walk (or run) along its bottom edge to a position, or go to one of the targets the current figure has of its own, which the environment section lists when it has any. Returns on arrival or interruption, after 30 seconds at most.',
+    description: 'Go somewhere on the screen the pet is on: walk (or run) horizontally at its current walking height to a position, or go to one of the targets the current figure has of its own, which the environment section lists when it has any. Returns on arrival or interruption, after 30 seconds at most.',
     parameters: {
       type: 'object',
       properties: {

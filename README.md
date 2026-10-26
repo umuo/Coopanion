@@ -31,7 +31,7 @@
   <a href="docs/DEVELOPMENT.md">Development</a>
 </p>
 
-Coopanion is a desktop pet. **Coo** lives on the bottom edge of your screen: it chats with you in speech bubbles, listens when you talk, walks along the edge, and with your permission can use your computer. It runs on Windows, macOS and Linux.
+Coopanion is a desktop pet. **Coo** starts on the bottom edge of your screen: it chats with you in speech bubbles, listens when you talk, walks along the edge, and with your permission can use your computer. It runs on Windows, macOS and Linux.
 
 **Languages**: the app and its first-run guide are in 简体中文, 繁體中文, English, 日本語, 한국어, Français, Deutsch, Español (Latinoamérica), Português (Brasil), Italiano and Русский. A new install uses the system language (English when the system language is none of these); change it under **Language** on the Habits page. Coo talks to you in the app language.
 
@@ -134,6 +134,7 @@ Each default is the fast, cheap, vision-capable tier of that vendor; change the 
 - **Typing**: rest the pointer on Coo and click the bubble button beside it. With **Typing key** on in Habits, pressing that key in any window opens the typing box too (left Ctrl pressed twice by default).
 - **Alarms**: ask Coo for one at a local time or after a number of minutes. Daily alarms keep the local clock time across daylight-saving changes, and alarms missed while the app is closed arrive when it next starts.
 - **Touch**: click to poke Coo, move back and forth over its head to pat it, press and drag to pick it up; let go mid-swing to throw it, or over another display to move it there.
+- **Walking height**: drag and release the built-in Coo or whale to set the height where it walks and lands after jumping. Drag it back to the bottom to restore walking along the edge. The walking height returns to the bottom on restart.
 - **Menu**: right-click Coo for pause / resume, settings, typing, voice input, dress up, hide and quit.
 
 Coopanion keeps running in the background: closing the settings window does not quit it, and the tray icon (menu bar on Mac) has show pet, start at login, restart and quit.
