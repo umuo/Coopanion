@@ -134,6 +134,8 @@ Each default is the fast, cheap, vision-capable tier of that vendor; change the 
 - **Typing**: rest the pointer on Coo and click the bubble button beside it. With **Typing key** on in Habits, pressing that key in any window opens the typing box too (left Ctrl pressed twice by default).
 - **Alarms**: ask Coo for one at a local time or after a number of minutes. Daily alarms keep the local clock time across daylight-saving changes, and alarms missed while the app is closed arrive when it next starts.
 - **Touch**: click to poke Coo, move back and forth over its head to pat it, press and drag to pick it up; let go mid-swing to throw it, or over another display to move it there.
+- **Motions**: ask Coo to “peek around.” Both built-in figures lean to either side with their gaze following, then return upright without moving from their spot.
+- **Play**: wiggle the mouse beside the built-in Coo or whale to make it chase, dodge at close range, or wave toward the cursor. Sitting, sleeping and wandering pets can respond too. Passing by and patting its body do not trigger play. Play pauses with roaming off, during conversations and voice input, and while following instructions.
 - **Walking height**: drag and release the built-in Coo or whale to set the height where it walks and lands after jumping. Drag it back to the bottom to restore walking along the edge. The walking height returns to the bottom on restart.
 - **Menu**: right-click Coo for pause / resume, settings, typing, voice input, dress up, hide and quit.
 

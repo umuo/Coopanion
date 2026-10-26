@@ -29,6 +29,9 @@
  *   `set(state)`, `cue(kind)`, `talk()`, `setScheme(id, { fade })`, `z` (the colour of its sleep z's),
  *   `words` (every word `do` knows; the kit's bodies list theirs, and the manifest's words not in it are
  *   kept from the bot) and `dispose()`. Only `step`, `layout` and `do` are required.
+ * - `set({ cursor })` optionally observes the cursor: `{ x, y, t }` in stage pixels and milliseconds, or null
+ *   when unavailable or over UI. Observation is separate from pointer input and does not authorize touch events.
+ * - `set({ cursorPlayPaused })` optionally pauses cursor reactions while menus or queued actions need priority.
  * - events (`emit`): `arrived` and `interrupted` ({ walkId, x, by }) for `walk` and `move` (`by`: a short word on what
  *   stopped it, which the bot reads; `drag` when it was picked up), `done` ({ word }) for a word
  *   that ends on its own, `touch` ({ kind: poke | pet | grab | drop | throw | crash, ... }), `mode` ({ mode }).

@@ -12,6 +12,7 @@
  * Nothing here plays sound or talks to the World: sounds are asked for through `opts.sfx` and what
  * happens to the body is told through `opts.onEvent`; the page around the frame does the rest.
  */
+import { createCursorWiggle } from './cursor-play.js';
 export { createRig } from './rig.js';
 
 export const f = n => Math.round(n * 10) / 10;
@@ -86,7 +87,7 @@ export const FACES = {
 export const KIT_EXPRESSIONS = ['neutral', 'happy', 'wink', 'love', 'shy', 'surprised', 'angry', 'sad', 'sleepy', 'thinking',
   'smug', 'pout', 'worried', 'determined', 'flustered', 'scared', 'excited', 'cry', 'confused'];
 export const KIT_MOTIONS = ['stand', 'jump', 'hop', 'look', 'turn', 'nod', 'shake', 'spin', 'sit', 'sleep', 'dizzy', 'walk', 'run',
-  'wave', 'bow', 'shiver', 'flap', 'dance'];
+  'wave', 'bow', 'shiver', 'flap', 'dance', 'peek'];
 /** The tone each face plays as it comes on (the host's synthesized sounds, web/sound.js), filed as a face sound. */
 const FACE_TONES = {
   happy: 'happy', wink: 'wink', love: 'love', surprised: 'surprised', angry: 'angry', sad: 'sad', shy: 'shy', sleepy: 'yawn',
@@ -133,6 +134,8 @@ export function createPet(els, opts) {
   const words = opts.words || {};
   let W = 0, H = 0, floorY = 0, S = .42, T = 0;
     let stageFloorY = 0, floorRatio = 1;
+    const cursorWiggle = createCursorWiggle();
+    let cursorPoint = null, cursorPlay = null, cursorReady = false, cursorNextAt = 0;
   let roam = opts.roam ?? 'free';
   let skin = opts.skin || null;
   let hold = 0; // until T: an order from outside is in progress, free roaming waits
@@ -200,6 +203,9 @@ export function createPet(els, opts) {
   }
 
   function setMode(m, o = {}) {
+        cursorPlay = null;
+        cursorReady = false;
+        cursorWiggle.reset();
     const prev = pet.mode;
     // an arrival clears walkId before going idle, so anything else that ends a walk (a turn, a bow, listening) cuts it short
     if ((prev === 'walk' || prev === 'run') && pet.walkId) {
@@ -223,7 +229,15 @@ export function createPet(els, opts) {
 
   /** Runs a motion. Returns false when the body cannot take it now (in the air, being dragged). */
   function act(a) {
-    if (busy()) return false;
+        if (busy()) {
+            return false;
+        }
+        if (cursorPlay) {
+            setMode('idle');
+        }
+        if (pet.pulse?.kind === 'peek') {
+            pet.pulse = null;
+        }
     pet.expr = null; pet.lastAct = a;
     const seated = pet.mode === 'sleep' || pet.mode === 'sit';
     switch (a) {
@@ -245,6 +259,12 @@ export function createPet(els, opts) {
       case 'shiver': pulse('shiver', 1.8); play('shiver', 'move'); break;
       case 'flap': setMode('crouch', { jumpV: 540, jumpVx: 0 }); pulse('flap', 1.4); holdFace('happy', 1.6); play('chirps', 'move'); break;
       case 'dance': setMode('dance', { dur: 3.2 }); holdFace('happy', 3.4); play('dance', 'move'); break;
+        case 'peek': {
+            setMode('idle');
+            pulse('peek', 2.4);
+            holdFace('neutral', 2.4);
+            break;
+        }
       default: {
         // a gesture of the pack's own, drawn by its figure from frame.gesture
         const m = words[a]?.motion;
@@ -306,7 +326,15 @@ export function createPet(els, opts) {
 
   /** Walks (or runs) to stage x. Resolves the walk through onEvent('arrived' | 'interrupted'). */
   function walkTo(x, run, walkId) {
-    if (busy()) return false;
+        if (busy()) {
+            return false;
+        }
+        if (pet.pulse?.kind === 'peek') {
+            pet.pulse = null;
+        }
+        if (cursorPlay) {
+            setMode('idle');
+        }
     if (pet.mode === 'sleep' || pet.mode === 'sit') setMode('wake', { startle: true });
     const target = clamp(x, minX(), maxX());
     pet.expr = null;
@@ -366,6 +394,13 @@ export function createPet(els, opts) {
     if (!(dt > 0 && dt < Infinity)) return;
     T += dt; pet.modeT += dt;
     A = anchors();
+        stepCursorPlay();
+        if (pet.pulse?.kind === 'peek' && (busy() || pet.listening || pet.thinking)) {
+            pet.pulse = null;
+            if (pet.expr === 'neutral') {
+                pet.expr = null;
+            }
+        }
     const m = pet.mode, mt = pet.modeT;
     let sqT = 0, strideT = 0, liftT = 0, leanT = 0, sitT = 0, bobT = 0, rate = 0, lookT = [0, 0], tiltT = 0;
     let tk = 160, tc = 12, drowseT = 0;
@@ -530,6 +565,11 @@ export function createPet(els, opts) {
       const k = (T - pet.pulse.t0) / pet.pulse.dur;
       if (k >= 1) pet.pulse = null;
       else if (custom?.gestures?.includes(pet.pulse.kind)) { /* the figure's own */ }
+        else if (pet.pulse.kind === 'peek') {
+            const reach = Math.sin(k * Math.PI * 2) * Math.sin(k * Math.PI);
+            tiltT += reach * 14;
+            lookT = [reach * pet.facing * 5, -Math.sin(k * Math.PI) * 1.5];
+        }
       else if (pet.pulse.kind === 'nod') leanT += 9 * Math.abs(Math.sin(k * Math.PI * 2));
       else if (pet.pulse.kind === 'shake') tiltT += 10 * Math.sin(k * Math.PI * 6) * (1 - k);
       else if (pet.pulse.kind === 'wave') tiltT += 6 * Math.sin(k * Math.PI * 6) * Math.sin(k * Math.PI);
@@ -710,6 +750,83 @@ export function createPet(els, opts) {
   }
 
   /* pointer: stage-pixel coordinates; `p.t` is when it happened (ms), else now */
+    function cursorPlayAllowed() {
+        return roam !== 'off' && !press && !opts.dialogOpen?.() && !opts.cursorPlayPaused?.()
+            && !pet.listening && !pet.thinking && !pet.pulse;
+    }
+
+    function cursorModeAvailable() {
+        return ['idle', 'look', 'sit', 'sleep'].includes(pet.mode)
+            || ((pet.mode === 'walk' || pet.mode === 'run') && !pet.walkId && !pet.walkWord);
+    }
+
+    /** Observed cursor positions never count as a touch or enter the drag's velocity samples. */
+    function observeCursor(point) {
+        const near = point && Math.abs(point.x - pet.x) <= 640 * S
+            && Math.abs(point.y - (pet.fy - 128 * S)) <= 180 * S;
+        if (!near || !cursorPlayAllowed() || (hitPet(point) && !cursorPlay) || (!cursorModeAvailable() && !cursorPlay)) {
+            cursorWiggle.reset();
+            cursorReady = false;
+            cursorPoint = null;
+            return;
+        }
+        cursorPoint = { ...point, seenAt: T };
+        if (T >= cursorNextAt && cursorWiggle.observe(point, S)) {
+            cursorReady = true;
+        }
+    }
+
+    function stepCursorPlay() {
+        if (!cursorPlayAllowed() || !cursorPoint || T - cursorPoint.seenAt > 3) {
+            cursorWiggle.reset();
+            cursorReady = false;
+            if (cursorPlay) {
+                setMode('idle');
+                pet.nextAt = T + 2;
+            }
+            return;
+        }
+        const dx = cursorPoint.x - pet.x;
+        const direction = Math.sign(dx) || pet.facing;
+        const distance = Math.abs(dx);
+        if (cursorPlay) {
+            if (cursorPlay.kind === 'chase' && distance <= 140 * S) {
+                setMode('idle');
+                pet.facing = direction;
+                act('wave');
+                pet.nextAt = T + 3;
+            } else if (T >= cursorPlay.until) {
+                setMode('idle');
+                pet.nextAt = T + 2;
+            } else if (cursorPlay.kind === 'chase') {
+                pet.target = clamp(cursorPoint.x - direction * 96 * S, minX(), maxX());
+            }
+            return;
+        }
+        if (!cursorReady || !cursorModeAvailable() || T < cursorNextAt) {
+            return;
+        }
+        cursorReady = false;
+        cursorNextAt = T + 4;
+        setMode('idle');
+        if (distance > 260 * S) {
+            setMode('walk', { target: clamp(cursorPoint.x - direction * 96 * S, minX(), maxX()) });
+            cursorPlay = { kind: 'chase', until: T + 3 };
+        } else if (distance < 160 * S) {
+            const target = clamp(pet.x - direction * 180 * S, minX(), maxX());
+            if (Math.abs(target - pet.x) > 24 * S) {
+                setMode('run', { target });
+                cursorPlay = { kind: 'dodge', until: T + 1.2 };
+            } else {
+                act('wave');
+            }
+        } else {
+            pet.facing = direction;
+            act('wave');
+        }
+        pet.nextAt = T + 3;
+    }
+
   const now = (p) => p?.t ?? performance.now();
   function velocity() {
     const s = pointer.samples;
@@ -850,7 +967,7 @@ export function createPet(els, opts) {
   custom?.setSkin?.(skin);
   return {
     pet, step, render, resize, act, setExpr, doWord, walkTo, stopWalk, toStage, hitPet, busy, layout,
-    pointerDown, pointerMove, pointerUp, pointerLeave, dropAt, shiftDrag,
+    pointerDown, pointerMove, pointerUp, pointerLeave, dropAt, shiftDrag, observeCursor,
     get pressing() { return !!press; },
     /** Pressed, carried, airborne, walking, running, dancing, turning round, or in a short gesture (nod, wave, bow…): motion that frames far apart show as jumps. */
     get moving() {
@@ -906,7 +1023,7 @@ const SVGNS = 'http://www.w3.org/2000/svg';
  * classes) and `opts.skinCss(skin)` the style that follows the skin.
  *
  * The body takes these calls from the page: step(dt), layout(), do(word), walk(x, run, id), stopWalk(id), pointer(type, p),
- * drop(p), shift(dx, dy), place(x, facing), set({ roam, hold, dialogOpen, listening, thinking, thoughtShown, skin, theme }),
+ * drop(p), shift(dx, dy), place(x, facing), set({ roam, hold, dialogOpen, listening, thinking, thoughtShown, skin, theme, cursor, cursorPlayPaused }),
  * cue(kind), talk(), setScheme(id, o), dispose(); `words` lists every word its do() knows.
  */
 export function createBody(host, opts) {
@@ -925,6 +1042,7 @@ export function createBody(host, opts) {
   const start = host.start ?? {};
   if (opts.skinCss && start.skin) skinStyle.textContent = opts.skinCss(start.skin);
   let dialogOpen = false;
+    let cursorPlayPaused = false;
   const ctl = createPet({ petG, shadowEl, fxG }, {
     ...opts,
     skin: start.skin ?? null, startX: start.x, enter: start.enter,
@@ -932,6 +1050,7 @@ export function createBody(host, opts) {
     onEvent: host.emit,
     sfx: { play: host.sound },
     dialogOpen: () => dialogOpen,
+        cursorPlayPaused: () => cursorPlayPaused,
   });
   if (start.facing === 1 || start.facing === -1) ctl.pet.facing = ctl.pet.faceVis = start.facing;
   return {
@@ -958,6 +1077,12 @@ export function createBody(host, opts) {
       if (facing === 1 || facing === -1) ctl.pet.facing = ctl.pet.faceVis = facing;
     },
     set(s) {
+        if (typeof s.cursorPlayPaused === 'boolean') {
+            cursorPlayPaused = s.cursorPlayPaused;
+        }
+        if (Object.hasOwn(s, 'cursor')) {
+            ctl.observeCursor(s.cursor);
+        }
       if (s.roam) ctl.setRoam(s.roam);
       if (typeof s.hold === 'number') ctl.holdRoam(s.hold);
       if (typeof s.dialogOpen === 'boolean') dialogOpen = s.dialogOpen;

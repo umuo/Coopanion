@@ -4,6 +4,8 @@ import { createPet, FACES, KIT_EXPRESSIONS, KIT_MOTIONS, STAND } from '../packag
 import { cooFigure, defaultSkin, figure } from '../packages/cortico-world-desktop-pet/web/coo/coo.js';
 import { createSfx } from '../packages/cortico-world-desktop-pet/web/sound.js';
 import { haloRect, readLayout, touchGate } from '../packages/cortico-world-desktop-pet/web/body-host.js';
+import { parseActions, parseScript } from '../packages/cortico-world-desktop-pet/src/script.ts';
+import { figurePacks } from '../packages/cortico-world-desktop-pet/src/packs.ts';
 
 const PKG = new URL('../packages/cortico-world-desktop-pet/', import.meta.url);
 const vocabOf = (pack) => JSON.parse(readFileSync(new URL(`web/${pack}/figure.json`, PKG), 'utf8')).vocab;
@@ -17,6 +19,69 @@ function barePet(onEvent, opts = {}) {
   return pet;
 }
 const run = (pet, seconds) => { for (let i = 0; i < seconds * 60; i++) { pet.step(1 / 60); pet.render(); } };
+
+describe('peeking from side to side', () => {
+    it('loads both built-in packs with the new motion through manifest validation', () => {
+        const scan = figurePacks([]);
+        expect(scan.problems).toEqual([]);
+        for (const id of ['coo', 'whale']) {
+            const pack = scan.packs.find((p) => p.id === id);
+            expect(pack?.manifest.vocab.some((word) => word.id === 'peek')).toBe(true);
+        }
+    });
+    it.each([1, -1])('looks and leans both ways without moving its feet while facing %s', (facing) => {
+        const body = barePet();
+        body.pet.facing = body.pet.faceVis = facing;
+        run(body, .5);
+        const home = { x: body.pet.x, y: body.pet.fy };
+        expect(body.doWord('peek')).toBe(true);
+        const duration = body.pet.pulse.dur;
+        run(body, duration / 4);
+        expect(body.toStage(128, 50).x).toBeGreaterThan(home.x + 5);
+        expect(body.pet.look[0] * facing).toBeGreaterThan(0);
+        run(body, duration / 2);
+        expect(body.toStage(128, 50).x).toBeLessThan(home.x - 5);
+        expect(body.pet.look[0] * facing).toBeLessThan(0);
+        expect(body.pet.x).toBe(home.x);
+        expect(body.pet.fy).toBe(home.y);
+        run(body, duration / 4 + 1);
+        expect(body.pet.pulse).toBeNull();
+        expect(Math.abs(body.pet.tilt)).toBeLessThan(.1);
+    });
+
+    it.each(['coo', 'whale'])('%s exposes the action by id and Chinese alias in tool calls and speech scripts', (pack) => {
+        const vocab = vocabOf(pack);
+        expect(parseActions(['peek', '左右探头'], vocab)).toEqual({ actions: ['peek', 'peek'], dropped: [] });
+        const script = parseScript('【左右探头】让我看看。', vocab);
+        expect(script.dropped).toEqual([]);
+        expect(script.beats[0].actions).toEqual(['peek']);
+        const body = barePet();
+        body.doWord('peek');
+        expect(vocab.find((word) => word.id === 'peek').seconds).toBeGreaterThanOrEqual(body.pet.pulse.dur);
+    });
+
+    it.each(['walk', 'stand', 'listen', 'think', 'drag'])('ends peeking when interrupted by %s', (command) => {
+        const body = barePet();
+        run(body, .1);
+        body.doWord('peek');
+        run(body, .3);
+        if (command === 'walk') {
+            body.walkTo(100, false, 'ordered');
+        } else if (command === 'stand') {
+            body.act('stand');
+        } else if (command === 'listen') {
+            body.setListening(true);
+        } else if (command === 'think') {
+            body.setThinking(true);
+        } else {
+            const hit = body.layout().hit[0];
+            body.pointerDown({ x: hit.x, y: hit.y, t: 0 });
+            body.pointerMove({ x: hit.x + 20, y: hit.y, t: 100 });
+        }
+        run(body, .1);
+        expect(body.pet.pulse).toBeNull();
+    });
+});
 
 describe('the words the model can use', () => {
   it('Coo and the whale do every word of their vocabularies on the kit, and the kit does no word they leave out', () => {

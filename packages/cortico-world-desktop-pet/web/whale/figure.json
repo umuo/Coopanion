@@ -916,6 +916,52 @@
       "seconds": 12
     },
     {
+        "id": "peek",
+        "kind": "motion",
+        "names": {
+            "zh": [
+                "左右探头",
+                "探头看看"
+            ],
+            "zh-Hant": [
+                "左右探頭",
+                "探頭看看"
+            ],
+            "en": [
+                "peek-around"
+            ],
+            "ja": [
+                "左右をのぞく"
+            ],
+            "ko": [
+                "두리번보기"
+            ],
+            "fr": [
+                "épier"
+            ],
+            "de": [
+                "umsehen"
+            ],
+            "es-419": [
+                "asomarse"
+            ],
+            "pt-BR": [
+                "espiar"
+            ],
+            "it": [
+                "sbirciare"
+            ],
+            "ru": [
+                "осмотреться"
+            ]
+        },
+        "about": {
+            "zh": "站在原地,先向一侧探头,再向另一侧探头,视线跟着移动,最后回正",
+            "en": "stays in place, leans out to one side then the other with its gaze following, and returns upright"
+        },
+        "seconds": 2.6
+    },
+    {
       "id": "wave",
       "kind": "motion",
       "names": {

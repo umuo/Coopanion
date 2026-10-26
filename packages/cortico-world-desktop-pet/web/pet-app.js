@@ -84,7 +84,7 @@ let body = null, words = new Map(), T = 0;
 /** Where the body last said it is (body-host.js `layout`), or null. */
 const at = () => body?.layout ?? null;
 /** What the body is told of the page: talking orders hold its roaming off, and these states. */
-const bodyState = { listening: false, thinking: false, thoughtShown: true, dialogOpen: false };
+const bodyState = { listening: false, thinking: false, thoughtShown: true, dialogOpen: false, cursorPlayPaused: false };
 const holdRoam = (seconds) => body?.set({ hold: seconds });
 host?.onFloor?.((px) => { below = px; body?.set({ bounds: bounds() }); });
 // the window reads the windows on its display only while the body on screen asks for them (`watchWindows`)
@@ -1428,6 +1428,7 @@ document.addEventListener('pointermove', (e) => {
   // while the window moves to another display, moves may come in either display's coordinates; the drag shifts over once it has moved
   if (!shifting) body?.pointer('move', { ...p, t: e.timeStamp });
   const hit = !!body?.hit(p), ui = !!overUi(e);
+    body?.set({ cursor: rendering() && !ui && !pressing && !shifting ? { ...p, t: performance.now() } : null });
   diag.move = { at: performance.now(), type: e.pointerType, x: Math.round(p.x), y: Math.round(p.y), hit, ui };
   diag.types.add(e.pointerType);
   if (e.pointerType !== diag.type) {
@@ -1446,12 +1447,14 @@ document.addEventListener('pointermove', (e) => {
 host?.onCursor?.((p) => {
   cursor.at = p;
   if (!p) {
+        body?.set({ cursor: null });
     diag.poll = { at: performance.now(), off: true };
     if (!pressing) setInteractive(false, 'poll');
     return;
   }
   const el = document.elementFromPoint(p.x, p.y);
   const hit = !!body?.hit(p), ui = !!el?.closest?.(UI_SELECTOR);
+    body?.set({ cursor: rendering() && !ui && !pressing && !shifting ? { ...p, t: performance.now() } : null });
   diag.poll = { at: performance.now(), x: p.x, y: p.y, hit, ui };
   setInteractive(rendering() && (pressing || hit || ui), 'poll');
 });
@@ -1519,7 +1522,11 @@ stage.addEventListener('pointerup', async (e) => {
   }
 });
 stage.addEventListener('pointercancel', up);
-document.addEventListener('pointerleave', () => { cursor.at = null; body?.pointer('leave', {}); });
+document.addEventListener('pointerleave', () => {
+    cursor.at = null;
+    body?.pointer('leave', {});
+    body?.set({ cursor: null });
+});
 stage.addEventListener('dblclick', (e) => { if (prefs.doubleClickChat && body?.hit({ x: e.clientX, y: e.clientY })) openInput(); });
 document.addEventListener('contextmenu', (e) => {
   e.preventDefault();
@@ -1749,7 +1756,10 @@ function frame(now) {
     stepTalkMotion();
     stepLines();
     stepStatus();
-    setBody({ dialogOpen: !!item || !!listen.phase });
+        setBody({
+            dialogOpen: !!item || !!listen.phase,
+            cursorPlayPaused: !menu.hidden || acts.length > 0 || T < actUntil || queue.length > 0,
+        });
     body?.tick(dt);
     stepBackdrop(dt);
     stepTools();

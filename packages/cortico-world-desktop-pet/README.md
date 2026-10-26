@@ -1,4 +1,4 @@
-<!-- Owner: web/kit/body.js, src/definition.ts, src/cua/cua.ts, src/world.ts, src/asr/system-recognizer.ts, src/asr/transcription-api.ts -->
+<!-- Owner: web/kit/body.js, web/kit/cursor-play.js, web/pet-app.js, web/figure-frame.js, src/definition.ts, src/cua/cua.ts, src/world.ts, src/asr/system-recognizer.ts, src/asr/transcription-api.ts -->
 
 <p align="center">
   <picture>
@@ -13,6 +13,10 @@
 bot 在屏幕底边有一个小身体,由一个形象包提供(见下文):内置的 Coo(C 形的身体,两只 0 形的眼睛,两条短腿)、内置的大肥鱼,或者装上的其他包。它用气泡说话、用选项提问、
 沿屏幕底边走动、做表情和动作;人可以对它说话(FunASR 或 Whisper 在本机识别,Windows 上也可用系统自带的识别)、打字、点选项、戳它、摸它、
 把它拎起来甩出去,这些都作为事件送回 bot。内置 Coo 和大肥鱼放下后沿放下的高度横向走动,跳跃后回到这个高度;拖回底部恢复沿底边走动,重启后恢复到底部。开了电脑操作时,bot 还能看屏幕、动鼠标键盘(见「电脑操作」)。
+
+内置形象在旁边的鼠标连续两次明显换向后,按距离追逐、躲闪或招手,坐着、打盹和自行走动时也能响应。摸头、拖拽、普通经过和轻微抖动不触发。走动关闭、对话、听写、思考和执行指令期间暂停,每次反应后等待至少 4 秒再接受逗弄。
+
+内置形象支持 `peek`（左右探头、探头看看）:原地向两侧倾斜,视线跟随,最后回正。可以经 `pet_act` 调用,或在说话脚本中写 `【左右探头】`。新的动作指令、拖拽、倾听和思考会打断它。
 
 ## 工具
 
